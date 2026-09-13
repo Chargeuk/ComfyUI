@@ -1767,6 +1767,21 @@ def get_free_memory(dev=None, torch_free_too=False):
     if dev is None:
         dev = get_torch_device()
 
+    # shared-comfyui-patch:gb10-unified-memory-free
+    # GB10 shares CPU/GPU memory; respect container limits on that shared pool.
+    try:
+        if (hasattr(dev, 'type') and dev.type == 'cuda'
+                and 'GB10' in torch.cuda.get_device_name(dev)):
+            try:
+                available = comfy.system_memory.virtual_memory_available()
+            except Exception:
+                available = psutil.virtual_memory().available
+            if torch_free_too:
+                return (available, available)
+            return available
+    except Exception:
+        pass
+
     if hasattr(dev, 'type') and (dev.type == 'cpu' or dev.type == 'mps'):
         mem_free_total = comfy.system_memory.virtual_memory_available()
         mem_free_torch = mem_free_total
