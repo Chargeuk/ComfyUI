@@ -524,7 +524,20 @@ def attention_xformers(q, k, v, heads, mask=None, attn_precision=None, skip_resh
         mask = mask_out[..., :mask.shape[-1]]
         mask = mask.expand(b, heads, -1, -1)
 
-    out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=mask, scale=kwargs.get("scale", None))
+    # shared-comfyui-patch:xformers-sdpa-fallback
+    try:
+        out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=mask, scale=kwargs.get("scale", None))
+    except NotImplementedError as e:
+        logging.warning("xformers attention unavailable for this input; falling back to PyTorch SDPA: %s", e)
+        out = comfy.ops.scaled_dot_product_attention(
+            q.transpose(1, 2),
+            k.transpose(1, 2),
+            v.transpose(1, 2),
+            attn_mask=mask,
+            dropout_p=0.0,
+            is_causal=False,
+            scale=kwargs.get("scale", None),
+        ).transpose(1, 2)
 
     if skip_output_reshape:
         out = out.permute(0, 2, 1, 3)
