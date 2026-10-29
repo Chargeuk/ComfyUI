@@ -1,1 +1,2 @@
-comfyui_manager==4.2.2
+# Preserve the installed Manager 4.3 API while permitting compatible updates.
+comfyui_manager>=4.3
